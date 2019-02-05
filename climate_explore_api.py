@@ -65,10 +65,10 @@ def get_temps(st_dt = "", end_dt = ""):
         st_dt, end_dt, yr_past = get_year_past()
     
     if(end_dt == ""):
-        res = session.query(func.min(M.tobs), func.avg(M.tobs), func.max(M.tobs)).\
+        res = session.query(coalesce(func.min(M.tobs),0), coalesce(func.avg(M.tobs),0), coalesce(func.max(M.tobs),0)).\
                     filter(M.date >= st_dt).one()
     else:
-        res = session.query(func.min(M.tobs), func.avg(M.tobs), func.max(M.tobs)).\
+        res = session.query(coalesce(func.min(M.tobs),0), coalesce(func.avg(M.tobs),0), coalesce(func.max(M.tobs),0)).\
                     filter(M.date.between(st_dt, end_dt)).one()
     
     session.close()
@@ -90,7 +90,7 @@ def welcome():
     """List all available api routes."""
     return (
         f"Hello!! Welcome to Climate App!. <br><br>"
-        f"Going on a vacation? Predict how weather will be during your vacation based on data from 2010<br><br>"
+        f"Going on a vacation to Hawaii? Predict how weather in Hawaii will be during your vacation based on data from 2010<br><br>"
         f"Check out:<br/>"
         f"Precipitation by dates :- /api/v1.0/precipitation<br/>"
         f"Stations where observations are made :- /api/v1.0/stations <br>"
@@ -158,15 +158,19 @@ def tobs():
 def tobs_stdt(start):
     """Return Minimum, Average and Maximum Temperature Observered values for all months since the given start date"""
     
+       
     # call function get_temps to get the Min, Max and Avg Temp observered values since start date
     tmin,tavg,tmax = get_temps(start)
-                                 
+    
+    
     return (
         f"Here are the Minimum, Maximum and Average observered Temperature since <b>{start}</b><br><br>"
         f"---------------------------------------------------------------------------------- <br><br>"
         f"The Miminum Observered Temperature is <b>{tmin} deg F</b> <br><br>"
         f"The Average Observered Temperature is <b>{round(tavg,1)} deg F</b> <br><br>"
         f"The Maximum Observered Temperature is <b>{tmax} deg F</b> <br><br>"
+        
+        f"<br><br><i>**** Note: If value is 0 then no results exists for the date range specified F</i> <br><br>"
         )
 
 
@@ -183,6 +187,8 @@ def tobs_stdt_enddt(start, end):
         f"The Miminum Observered Temperature is <b>{tmin} deg F</b> <br><br>"
         f"The Average Observered Temperature is <b>{round(tavg,1)} deg F</b> <br><br>"
         f"The Maximum Observered Temperature is <b>{tmax} deg F</b> <br><br>"
+        
+        f"<br><br><i>**** Note: If value is 0 then no results exists for the date range specified F</i> <br><br>"
         )
 
 
