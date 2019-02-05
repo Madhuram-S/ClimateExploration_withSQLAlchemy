@@ -5,6 +5,9 @@ import sqlalchemy
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session, sessionmaker, scoped_session
 from sqlalchemy import create_engine, func
+from sqlalchemy.sql.functions import coalesce # library to use check if null and replace with 0 or any value
+
+from datetime import datetime as dt, timedelta
 
 from flask import Flask, jsonify
 
@@ -23,12 +26,54 @@ Base.prepare(engine, reflect=True)
 M = Base.classes.measurement
 S = Base.classes.station
 
-# Create our session (link) from Python to the DB
-session = scoped_session(sessionmaker(engine))
 
 
-#res = session.query(Passenger.name,Passenger.age, Passenger.sex).all()
+def get_year_past(st_dt = "", end_dt = ""):
+    # Create our session (link) from Python to the DB
+    session = Session(engine)
+    
+    #if no st_dt and end_dt is passed use Min and Max date in the DB for Measurement table
+    if(st_dt == ""):
+        st_dt = dt.strptime(session.query(func.min(M.date)).scalar(),"%Y-%m-%d") 
+    
+    if(end_dt == ""):
+        end_dt = dt.strptime(session.query(func.max(M.date)).scalar(),"%Y-%m-%d") 
 
+    
+    session.close() # close the session
+    
+    # One year prior to end date 
+    year_past = end_dt - timedelta(days = 365)
+    
+    
+    return (st_dt, end_dt, year_past)
+
+
+def get_temps(st_dt = "", end_dt = ""):
+    """TMIN, TAVG, and TMAX for a list of dates.
+    
+    Args:
+        st_dt (string): A date string in the format %Y-%m-%d
+        end_dt (string): A date string in the format %Y-%m-%d
+        
+    Returns:
+        TMIN, TAVE, and TMAX
+    """
+    session = Session(engine)
+    
+    if(st_dt == ""):
+        st_dt, end_dt, yr_past = get_year_past()
+    
+    if(end_dt == ""):
+        res = session.query(func.min(M.tobs), func.avg(M.tobs), func.max(M.tobs)).\
+                    filter(M.date >= st_dt).one()
+    else:
+        res = session.query(func.min(M.tobs), func.avg(M.tobs), func.max(M.tobs)).\
+                    filter(M.date.between(st_dt, end_dt)).one()
+    
+    session.close()
+    
+    return res
 
 #################################################
 # Flask Setup
@@ -46,47 +91,99 @@ def welcome():
     return (
         f"Hello!! Welcome to Climate App!. <br><br>"
         f"Going on a vacation? Predict how weather will be during your vacation based on data from 2010<br><br>"
-        f"Available Routes:<br/>"
-        f"/api/v1.0/precipitation<br/>"
-        f"/api/v1.0/stations <br>"
-        f"/api/v1.0/tobs<br>"
-        f"/api/v1.0/<start><br>"
-        f"/api/v1.0/<start>/<end>"
+        f"Check out:<br/>"
+        f"Precipitation by dates :- /api/v1.0/precipitation<br/>"
+        f"Stations where observations are made :- /api/v1.0/stations <br>"
+        f"Temperature onservered by dates :- /api/v1.0/tobs<br><br>"
+        
+        f"You can see the Minimum, Maximum and Average Temperatures between specified date ranges<br><br>"
+        f"<b>date format has to be YYYY-mm-dd only.. (e.g., 2012-07-23)</b><br>"
+        f"/api/v1.0/<--give your start date here--><br>"
+        f"/api/v1.0/<--give start date-->/<--give end date here-->"
+        
+       
     )
 
 
 @app.route("/api/v1.0/precipitation")
-def names():
+def prcp():
     """Return Precipitation values for all dates available in DB"""
-    # Query all Measurement Table to get precipitation date for all available dates
-    results = pd.DataFrame(session.query(M.date.label('Date'), M.prcp.label('Precipitation')).all())
-    results.set_index('Date', inplace = True)
-                           
-    # Convert list of tuples into normal list
-    #all_names = list(np.ravel(results))
     
-    #session.close()
-    return pd.to_json(results, orient = 'columns')
-
-
-@app.route("/api/v1.0/passengers")
-def passengers():
-    """Return a list of passenger data including the name, age, and sex of each passenger"""
     session = Session(engine)
-    # Query all passengers
-    results = session.query(Passenger).all()
-    #results = res
-    # Create a dictionary from the row data and append to a list of all_passengers
-    all_passengers = []
-    for passenger in results:
-      passenger_dict = {}
-      passenger_dict["name"] = passenger.name
-      passenger_dict["age"] = passenger.age
-      passenger_dict["sex"] = passenger.sex
-      all_passengers.append(passenger_dict)
-
+    # Query all Measurement Table to get precipitation date for all available dates
+    results = session.query(func.strftime('%Y-%m-%d',M.date), coalesce(M.prcp,0)).all()
+    
     session.close()
-    return jsonify(all_passengers)
+                                 
+    # Convert list of tuples into dict with date as the key and precipitation as value
+    prcp_dict = [{d:p} for d,p in results]
+    
+    return jsonify(prcp_dict)
+
+
+@app.route("/api/v1.0/stations")
+def stations():
+    """Return a list of stations where data is collection from. It also give latitude, longitude, elevation"""
+    
+    session = Session(engine)
+    # Query to bring all stations
+    results = pd.DataFrame(session.query(S.id.label('ID'),S.station.label('Station'),S.name.label('Name'),\
+                                         S.latitude.label('Latitude'),S.longitude.label('Longitude'), \
+                                         S.elevation.label('Elevation')).all())
+    
+    session.close()
+    #return jsonify(all_passengers)
+    # Create a dictionary from the row data of the dataframe and return it as a JSON
+    return jsonify(results.to_dict(orient = 'records'))
+
+@app.route("/api/v1.0/tobs")
+def tobs():
+    """Return Temperature Observered values for 12 months prev to the given end date as available in DB"""
+    
+    #get min, max and year_past date from DB
+    min_dt, max_dt, yr_past = get_year_past()
+    
+    session = Session(engine)
+    # Query all Measurement Table to get precipitation date for all available dates
+    results = session.query(M.date.label('Date'), coalesce(M.tobs.label("TempObs"),0)).\
+                filter(M.date.between(yr_past, max_dt)).all()
+                                 
+    # Convert list of tuples into dict with date as the key and precipitation as value
+    temp_dict = [{d:p} for d,p in results]
+    
+    session.close()
+    return jsonify(temp_dict)
+
+@app.route("/api/v1.0/<start>") 
+def tobs_stdt(start):
+    """Return Minimum, Average and Maximum Temperature Observered values for all months since the given start date"""
+    
+    # call function get_temps to get the Min, Max and Avg Temp observered values since start date
+    tmin,tavg,tmax = get_temps(start)
+                                 
+    return (
+        f"Here are the Minimum, Maximum and Average observered Temperature since <b>{start}</b><br><br>"
+        f"---------------------------------------------------------------------------------- <br><br>"
+        f"The Miminum Observered Temperature is <b>{tmin} deg F</b> <br><br>"
+        f"The Average Observered Temperature is <b>{round(tavg,1)} deg F</b> <br><br>"
+        f"The Maximum Observered Temperature is <b>{tmax} deg F</b> <br><br>"
+        )
+
+
+@app.route("/api/v1.0/<start>/<end>")
+def tobs_stdt_enddt(start, end):
+    """Return Minimum, Average and Maximum Temperature Observered values for all months since the given start date"""
+    
+    # call function get_temps to get the Min, Max and Avg Temp observered values since start date
+    tmin,tavg,tmax = get_temps(start, end)
+                                 
+    return (
+        f"Here are the Minimum, Maximum and Average observered Temperature between <b>{start}</b> and <b>{end}</b> - <br><br>"
+        f"---------------------------------------------------------------------------------- <br><br>"
+        f"The Miminum Observered Temperature is <b>{tmin} deg F</b> <br><br>"
+        f"The Average Observered Temperature is <b>{round(tavg,1)} deg F</b> <br><br>"
+        f"The Maximum Observered Temperature is <b>{tmax} deg F</b> <br><br>"
+        )
 
 
 if __name__ == '__main__':
