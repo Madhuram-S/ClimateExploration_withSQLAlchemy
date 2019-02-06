@@ -28,17 +28,15 @@ S = Base.classes.station
 
 
 
-def get_year_past(st_dt = "", end_dt = ""):
+def get_year_past(end_dt = ""):
     # Create our session (link) from Python to the DB
     session = Session(engine)
     
-    #if no st_dt and end_dt is passed use Min and Max date in the DB for Measurement table
-    if(st_dt == ""):
-        st_dt = dt.strptime(session.query(func.min(M.date)).scalar(),"%Y-%m-%d") 
-    
+    #if end_dt is passed use Max date in the DB for Measurement table
     if(end_dt == ""):
         end_dt = dt.strptime(session.query(func.max(M.date)).scalar(),"%Y-%m-%d") 
-
+    else:
+        end_dt = dt.strptime(end_dt, "%Y-%m-%d")
     
     session.close() # close the session
     
@@ -46,7 +44,7 @@ def get_year_past(st_dt = "", end_dt = ""):
     year_past = end_dt - timedelta(days = 365)
     
     
-    return (st_dt, end_dt, year_past)
+    return (end_dt, year_past)
 
 
 def get_temps(st_dt = "", end_dt = ""):
@@ -110,9 +108,13 @@ def welcome():
 def prcp():
     """Return Precipitation values for all dates available in DB"""
     
+    #get max and year_past date from DB
+    max_dt, yr_past = get_year_past()
+    
     session = Session(engine)
     # Query all Measurement Table to get precipitation date for all available dates
-    results = session.query(func.strftime('%Y-%m-%d',M.date), coalesce(M.prcp,0)).all()
+    results = session.query(func.strftime('%Y-%m-%d',M.date), coalesce(M.prcp,0)).\
+                filter(M.date.between(yr_past,max_dt)).all()
     
     session.close()
                                  
@@ -141,8 +143,8 @@ def stations():
 def tobs():
     """Return Temperature Observered values for 12 months prev to the given end date as available in DB"""
     
-    #get min, max and year_past date from DB
-    min_dt, max_dt, yr_past = get_year_past()
+    #get max and year_past date from DB
+    max_dt, yr_past = get_year_past()
     
     session = Session(engine)
     # Query all Measurement Table to get precipitation date for all available dates
