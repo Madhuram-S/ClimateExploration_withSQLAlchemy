@@ -64,7 +64,7 @@ def get_temps(st_dt = "", end_dt = ""):
     if(st_dt == ""):
         st_dt, end_dt, yr_past = get_year_past()
     
-    if(end_dt == ""):
+    if(end_dt == "" or end_dt is None):
         res = session.query(coalesce(func.min(M.tobs),0), coalesce(func.avg(M.tobs),0), coalesce(func.max(M.tobs),0)).\
                     filter(M.date >= st_dt).one()
     else:
@@ -74,6 +74,7 @@ def get_temps(st_dt = "", end_dt = ""):
     session.close()
     
     return res
+
 
 #################################################
 # Flask Setup
@@ -132,7 +133,7 @@ def stations():
                                          S.elevation.label('Elevation')).all())
     
     session.close()
-    #return jsonify(all_passengers)
+    
     # Create a dictionary from the row data of the dataframe and return it as a JSON
     return jsonify(results.to_dict(orient = 'records'))
 
@@ -154,26 +155,7 @@ def tobs():
     session.close()
     return jsonify(temp_dict)
 
-@app.route("/api/v1.0/<start>") 
-def tobs_stdt(start):
-    """Return Minimum, Average and Maximum Temperature Observered values for all months since the given start date"""
-    
-       
-    # call function get_temps to get the Min, Max and Avg Temp observered values since start date
-    tmin,tavg,tmax = get_temps(start)
-    
-    
-    return (
-        f"Here are the Minimum, Maximum and Average observered Temperature since <b>{start}</b><br><br>"
-        f"---------------------------------------------------------------------------------- <br><br>"
-        f"The Miminum Observered Temperature is <b>{tmin} deg F</b> <br><br>"
-        f"The Average Observered Temperature is <b>{round(tavg,1)} deg F</b> <br><br>"
-        f"The Maximum Observered Temperature is <b>{tmax} deg F</b> <br><br>"
-        
-        f"<br><br><i>**** Note: If value is 0 then no results exists for the date range specified F</i> <br><br>"
-        )
-
-
+@app.route("/api/v1.0/<start>", defaults = {'end' : None}) 
 @app.route("/api/v1.0/<start>/<end>")
 def tobs_stdt_enddt(start, end):
     """Return Minimum, Average and Maximum Temperature Observered values for all months since the given start date"""
@@ -190,7 +172,6 @@ def tobs_stdt_enddt(start, end):
         
         f"<br><br><i>**** Note: If value is 0 then no results exists for the date range specified F</i> <br><br>"
         )
-
 
 if __name__ == '__main__':
     app.run(debug=True)
