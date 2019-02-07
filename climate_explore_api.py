@@ -114,7 +114,7 @@ def prcp():
     session = Session(engine)
     # Query all Measurement Table to get precipitation date for all available dates
     results = session.query(func.strftime('%Y-%m-%d',M.date), coalesce(M.prcp,0)).\
-                filter(M.date.between(yr_past,max_dt)).all()
+                filter(M.date >= yr_past).order_by(M.date).all()
     
     session.close()
                                  
@@ -149,7 +149,7 @@ def tobs():
     session = Session(engine)
     # Query all Measurement Table to get precipitation date for all available dates
     results = session.query(M.date.label('Date'), coalesce(M.tobs.label("TempObs"),0)).\
-                filter(M.date.between(yr_past, max_dt)).all()
+                filter(M.date >= yr_past).order_by(M.date).all()
                                  
     # Convert list of tuples into dict with date as the key and precipitation as value
     temp_dict = [{d:p} for d,p in results]
