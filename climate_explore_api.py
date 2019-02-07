@@ -60,7 +60,7 @@ def get_temps(st_dt = "", end_dt = ""):
     session = Session(engine)
     
     if(st_dt == ""):
-        st_dt, end_dt, yr_past = get_year_past()
+        end_dt, st_dt = get_year_past()
     
     if(end_dt == "" or end_dt is None):
         res = session.query(coalesce(func.min(M.tobs),0), coalesce(func.avg(M.tobs),0), coalesce(func.max(M.tobs),0)).\
