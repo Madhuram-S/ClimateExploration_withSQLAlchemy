@@ -44,7 +44,7 @@ def get_year_past(end_dt = ""):
     year_past = end_dt - timedelta(days = 365)
     
     
-    return (end_dt, year_past)
+    return (end_dt.strftime("%Y-%m-%d"), year_past.strftime("%Y-%m-%d"))
 
 
 def get_temps(st_dt = "", end_dt = ""):
