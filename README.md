@@ -15,25 +15,28 @@ Following exploration and analysis are done
         * Start date of the climate data and end date of the climate data
         * date that is exactly a year previous to the end date within the climate data
 
-- Precipitation Analysis using a query to retrieve the last 12 months of precipitation data
+- Precipitation Analysis using a query to retrieve the last 12 months of precipitation data. The output of plot is [Precipitaion Vs Data](images/PreciptationvsDate.png)
 
 - Station Analysis
     * Total number of stations
     * Most active stations
     * Explore last 12 months of temperature observation data (tobs) for the most active station
     * Plot a histogram with bins = 12
+    * output looks like [TOBs Observation](images/Tobs_hist.png)
 
 - Temperature Analysis 
     * Find the minimum, average and maximum temperature for dates same as trip planned dates but a previous year
     * Plot the min, avg, and max temperature from your previous query as a bar chart.
          * with average temperature as the bar height.
          * and peak-to-peak (tmax-tmin) value as the y error bar (yerr)
-         
+     * [temperature during vacation](images/Vac_Temp_obs.png)
+     
 - Calculate the rainfall per weather station using the previous year's matching dates.
 
 - Calculate the daily normals. Normals are the averages for the min, avg, and max temperatures
     * Create a list of dates for your trip in the format `%m-%d`. Use the `daily_normals` function to calculate the normals for each date string and append the results to a list.
-    * Use Pandas to plot an area plot (`stacked=False`) for the daily normals
+    * Use Pandas to plot an area plot (`stacked=False`) for the daily normals. 
+    * plot is [Area Plot of temperature changes](images/TempChng_areaplot.png)
     
 ## Step 2 - Climate App using Flask (refer to file climate_explore_api.py)
 
